@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> <!-- Added viewport meta tag for responsiveness -->
+
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap/dist/css/bootstrap.min.css">
+    <title>Home</title>
+    <style>
+        .table {
+            display: grid;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 1px;
+        }
+        .data-item {
+            padding: 1px;
+            border: 1px solid #555;
+        }
+        .data-header {
+            padding: 1px;
+            border: 1px solid #555;
+            background-color: #444;
+            color: white;
+        }
+
+        @media (max-width: 900px) {
+            .table {
+                grid-template-columns: repeat(4, 1fr);
+                gap: 1px;
+            }
+        }
+        @media (max-width: 600px) {
+            .table {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1px;
+            }
+        }
+        .table div {
+            /* border: 1px solid #000; */
+            padding: 1px;
+        }
+        .meter_row {
+            border: 1px solid #444;
+        }
+        .separator {
+            background-color: #AAA;
+        }
+        #meter_list {
+            background-color: whitesmoke;
+            forced-color-adjust: auto;
+            height: 70vh; /* Adjust the height as needed */
+            overflow-y: scroll;
+        }
+        #readings_table {
+            background-color: whitesmoke;
+            forced-color-adjust: auto;
+            height: 70vh; /* Adjust the height as needed */
+            overflow-y: scroll;
+        }
+        header {
+            position: sticky;
+            top: 0;
+            background-color: white;
+            z-index: 1000;
+            padding: 10px 0;
+        }
+    </style>
+</head>
+<body onload="restoreFilter()">
+<header>
+    <h1>SGMA Wells</h1>
+    <p>This is the home page of the application</p>
+    <!-- List of Wells, with text box on top used for filtering -->
+    <input type="text" id="filter" placeholder="Filter Wells" onkeyup="filterMeters(); saveFilter()">
+    <input type="button" id="chkPF" value="Check for Issues" onclick="checkPhantomFlows()">
+    <hr>
+</header>
+<main>
+    <div class="container-fluid themed-container">
+        <div class="row">
+        <div class="col-2" id="meter_list">
+            {% for well in meters %}
+            <div class="row meter_row" id="row_{{well.meter_id}}"  >
+                <div class="col-7 individual-meter" onclick="select_meter('{{well.meter_id}}')" 
+                    id="{{well.meter_id}}"
+                    >{{ well.meter_id }}
+                </div>
+                <div 
+                    class="col-1" id="pf100_{{well.meter_id}}" 
+                    style="display: none;"
+                    title="Phantom Flows detected during last 100 days"
+                 >
+                    <img src="/static/surprise.png" height="20" width="20">
+                </div>
+                <div id="status_{{well.meter_id}}" class="col-1" style="display: none;" class="progress-icon">
+                    <img src="/static/icons8-loading.gif" height="25" width="25"> 
+                </div>
+                <div 
+                    class="col-1" id="pf30_{{well.meter_id}}" 
+                    style="display: none;" 
+                    title="Phantom Flows detected during last 30 days"
+                >
+                    <img src="/static/mind-blown.png" height="20" width="20">
+                </div>
+                <div 
+                    class="col-1" id="comm_{{well.meter_id}}" 
+                    style="display: none;" 
+                    title="Communication Issue 3 consecutive days during last 30 days"
+                >
+                    <img src="/static/calculation.png" height="20" width="20">
+                </div>
+                <div 
+                    class="col-1" id="disc_{{well.meter_id}}" 
+                    style="display: none;" 
+                    title="Disconnected 15 consecutive days during last 30 days"
+                >
+                    <img src="/static/wifi.png" height="20" width="20">
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        <div class="col-sm-1 separator">
+            &nbsp;
+        </div>
+        <div class="col-8">
+            <div class="row">
+                <div class="col-10" id="readings_table_header"></div>
+                <div class="col-10" id="readings_table"></div>
+            </div>
+        </div>
+</div>
+
+</main>
+<aside>
+</aside>
+<script>
+    let globalReadings = [];
+
+    function filterMeters() {
+        function hide_icons(meterId) {
+            let id = {};
+            try {
+                id = document.getElementById('pf100_' + meterId);
+                id.style.display = 'none';
+                id = document.getElementById('pf30_' + meterId);
+                id.style.display = 'none';
+            } catch (error) {
+            }
+        }
+
+        const filterValue = document.getElementById('filter').value.toLowerCase();
+        const meters = document.querySelectorAll('#meter_list div');
+        
+        meters.forEach(meter => {
+            const meterText = meter.textContent.toLowerCase();
+            if (meterText.includes(filterValue)) {
+                meter.style.display = '';
+                hide_icons(meter.innerText);
+            } else {
+                meter.style.display = 'none';
+            }
+        });
+    }
+
+    function saveFilter() {
+        const filterValue = document.getElementById('filter').value;
+        localStorage.setItem('filterValue', filterValue);
+    }
+
+    function restoreFilter() {
+        const filterValue = localStorage.getItem('filterValue');
+        if (filterValue) {
+            document.getElementById('filter').value = filterValue;
+            filterMeters();
+        }
+    }
+
+    async function checkPhantomFlows() {
+        let meters = document.getElementsByClassName('individual-meter');
+
+        // remove duplicates
+        meters = Array.from(new Set(meters));
+        // remove any meters where style.display is none
+        meters = Array.from(meters).filter(meter => meter.style.display !== 'none');
+        // remove any meters that are not visible in the viewport
+        meters = meters.filter(meter => {
+            const rect = meter.getBoundingClientRect();
+            return (rect.top >= 0 && rect.bottom <= window.innerHeight);
+        });
+
+        for (const meter of meters) {
+            const meterId = meter.textContent.trim();
+            if (meterId.length > 0) {
+                let status_id = document.getElementById('status_' + meterId);
+                status_id.style.display = 'block';
+                const response = await fetch(`/meter-reads/${meterId}`);
+                const data = await response.json();
+                status_id.style.display = 'none';
+            
+                if (data.phantom_flows) {
+                    let id = document.getElementById('pf100_' + meterId);
+                    id.style.display = 'block';
+                }
+                if (data.phantom_flows_30) {
+                    let id = document.getElementById('pf30_' + meterId);
+                    id.style.display = 'block';
+                }
+                if (data.comm_issue) {
+                    let id = document.getElementById('comm_' + meterId);
+                    id.style.display = 'block';
+                }
+                if (data.disconnected) {
+                    let id = document.getElementById('disc_' + meterId);
+                    id.style.display = 'block';
+                }
+
+            }
+        }
+    }
+
+    async function select_meter(meterId) {
+        const response = await fetch(`/meter-reads/${meterId}`);
+        const data = await response.json();
+        globalReadings = data.meter_reads;
+
+        // sort readings by date in descending order
+        globalReadings.sort((a, b) => {
+            return new Date(b.curr_date) - new Date(a.curr_date);
+        });
+
+        let mtrid = "'" + meterId + "'";
+        let header_txt = '';
+        header_txt += '<div class="row" >';
+        header_txt += '<div class=col-10><h2>Well Details : ' + meterId + '</h2></div>';
+        header_txt += `<div class=col-2 id="download_data" onclick="downloadCSV(${mtrid});">` 
+                      + `<img src="/static/microsoft-excel.png" height=30px width=30px /></div>`;
+        header_txt += '</div>';
+        header_txt += '<div class="row table-header">';
+        header_txt += '<div class="col-3 data-header">Date</div>'
+        header_txt += '<div class="col-3 data-header">Reading</div>'
+        header_txt += '<div class="col-2 data-header">Calculated</div>'
+        header_txt += '<div class="col-2 data-header">ACFT</div>'
+        header_txt += '<div class="col-2 data-header">Phantom</div>'
+        header_txt += '</div>';
+
+        let table = '';
+        globalReadings.forEach(reading => {
+            table += '<div class="row table-row">';
+            table += `<div class="col-3 data-item">${reading.curr_date}</div>`;
+            table += `<div class="col-3 data-item">${reading.curr_reading}</div>`;   
+            table += `<div class="col-2 data-item">${reading.calculated}</div>`;
+            table += `<div class="col-2 data-item">${parseFloat(reading.delta).toFixed(4)}</div>`;
+            table += `<div class="col-2 data-item">${reading.phantom}</div>`;
+            table += '</div>';
+        });
+        table += '</div>';
+        document.getElementById('readings_table_header').innerHTML = header_txt;
+        document.getElementById('readings_table').innerHTML = table;
+    }
+
+    function downloadCSV(meterId) {
+        function mindate() {
+            let min = '9999-99-99';
+            globalReadings.forEach(reading => {
+                if ( reading.curr_date < min ) {
+                    min = reading.curr_date;
+                }
+            });
+            return min;
+        }
+        function maxdate() {
+            let max = '0000-00-00';
+            globalReadings.forEach(reading => {
+                if ( reading.curr_date > max ) {
+                    max = reading.curr_date;
+                }
+            });
+            return max;
+        }
+
+        let csvContent = "data:text/csv;charset=utf-8,";
+        csvContent += "Meter,Date,Reading,Calculated,ACFT,Phantom\n";
+
+        let filename = meterId + '_' + mindate() + '_to_' + maxdate() + '.csv';
+
+
+        globalReadings.forEach(reading => {
+            const row = `${meterId},${reading.curr_date},${reading.curr_reading},${reading.calculated},${parseFloat(reading.delta).toFixed(4)},${reading.phantom}`;
+            csvContent += row + "\n";
+        });
+
+        const encodedUri = encodeURI(csvContent);
+        const link = document.createElement("a");
+        link.setAttribute("href", encodedUri);
+        link.setAttribute("download", filename);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    }
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap/dist/js/bootstrap.min.js"></script>
+
+</body>
+</html>
