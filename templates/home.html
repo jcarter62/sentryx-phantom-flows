@@ -64,6 +64,9 @@
             z-index: 1000;
             padding: 10px 0;
         }
+        body {
+            padding-left: 20px; /* Adjust the padding as needed */
+        }
     </style>
 </head>
 <body onload="restoreFilter()">
@@ -219,6 +222,38 @@
     }
 
     async function select_meter(meterId) {
+        function showProgress() {
+            let header_txt = '';
+            header_txt += '<div class="row" >';
+            header_txt += '<div class=col-10><h2>Loading Well : ' + meterId + '</h2></div>';
+            header_txt += '</div>';
+            header_txt += '<div class="row table-header">';
+            header_txt += '<div class="col-3 data-header">Date</div>'
+            header_txt += '<div class="col-3 data-header">Reading</div>'
+            header_txt += '<div class="col-2 data-header">Calculated</div>'
+            header_txt += '<div class="col-2 data-header">ACFT</div>'
+            header_txt += '<div class="col-2 data-header">Phantom</div>'
+            header_txt += '</div>';
+
+            let table = '<div>Loading...</div>';
+
+            document.getElementById('readings_table_header').innerHTML = header_txt;
+            document.getElementById('readings_table').innerHTML = table;
+
+
+        }
+
+        function highlightSelectedMeter(meterId) {
+            const meters = document.querySelectorAll('.individual-meter');
+            // clear all background colors
+            meters.forEach(meter => {
+                meter.style.backgroundColor = '';
+            });
+            let id = document.getElementById(meterId);
+        }
+
+        showProgress();
+        highlightSelectedMeter(meterId);
         const response = await fetch(`/meter-reads/${meterId}`);
         const data = await response.json();
         globalReadings = data.meter_reads;
@@ -254,6 +289,10 @@
             table += '</div>';
         });
         table += '</div>';
+
+        // sleep for about 1/2 second to allow the progress icon to show.
+        await new Promise(r => setTimeout(r, 500));
+
         document.getElementById('readings_table_header').innerHTML = header_txt;
         document.getElementById('readings_table').innerHTML = table;
     }
