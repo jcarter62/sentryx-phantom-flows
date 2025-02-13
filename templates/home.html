@@ -42,8 +42,13 @@
         .meter_row {
             border: 1px solid #444;
         }
+        .meter_row_selected {
+            background-color: #444;
+            color: white;
+        }
         .separator {
             background-color: #AAA;
+            width: 1%; /* Adjust the width as needed */
         }
         #meter_list {
             background-color: whitesmoke;
@@ -67,6 +72,16 @@
         body {
             padding-left: 20px; /* Adjust the padding as needed */
         }
+        #readings_table_header {
+            padding-left: 20px;
+            padding-right: 20px;
+        }
+        #readings_table {
+            padding-left: 20px;
+            padding-right: 20px;
+        }
+
+
     </style>
 </head>
 <body onload="restoreFilter()">
@@ -81,56 +96,61 @@
 <main>
     <div class="container-fluid themed-container">
         <div class="row">
-        <div class="col-2" id="meter_list">
-            {% for well in meters %}
-            <div class="row meter_row" id="row_{{well.meter_id}}"  >
-                <div class="col-7 individual-meter" onclick="select_meter('{{well.meter_id}}')" 
-                    id="{{well.meter_id}}"
-                    >{{ well.meter_id }}
+            <div class="col-2" id="meter_list">
+                {% for well in meters %}
+                <div class="row meter_row" id="row_{{well.meter_id}}"  >
+                    <div class="col-7 individual-meter" onclick="select_meter('{{well.meter_id}}')" 
+                        id="{{well.meter_id}}"
+                        >{{ well.meter_id }}
+                    </div>
+                    <div 
+                        class="col-1" id="pf100_{{well.meter_id}}" 
+                        style="display: none;"
+                        title="Phantom Flows detected during last 100 days"
+                    >
+                        <img src="/static/surprise.png" height="20" width="20">
+                    </div>
+                    <div id="status_{{well.meter_id}}" class="col-1" style="display: none;" class="progress-icon">
+                        <img src="/static/icons8-loading.gif" height="25" width="25"> 
+                    </div>
+                    <div 
+                        class="col-1" id="pf30_{{well.meter_id}}" 
+                        style="display: none;" 
+                        title="Phantom Flows detected during last 30 days"
+                    >
+                        <img src="/static/mind-blown.png" height="20" width="20">
+                    </div>
+                    <div 
+                        class="col-1" id="comm_{{well.meter_id}}" 
+                        style="display: none;" 
+                        title="Communication Issue 3 consecutive days during last 30 days"
+                    >
+                        <img src="/static/calculation.png" height="20" width="20">
+                    </div>
+                    <div 
+                        class="col-1" id="disc_{{well.meter_id}}" 
+                        style="display: none;" 
+                        title="Disconnected 15 consecutive days during last 30 days"
+                    >
+                        <img src="/static/wifi.png" height="20" width="20">
+                    </div>
                 </div>
-                <div 
-                    class="col-1" id="pf100_{{well.meter_id}}" 
-                    style="display: none;"
-                    title="Phantom Flows detected during last 100 days"
-                 >
-                    <img src="/static/surprise.png" height="20" width="20">
-                </div>
-                <div id="status_{{well.meter_id}}" class="col-1" style="display: none;" class="progress-icon">
-                    <img src="/static/icons8-loading.gif" height="25" width="25"> 
-                </div>
-                <div 
-                    class="col-1" id="pf30_{{well.meter_id}}" 
-                    style="display: none;" 
-                    title="Phantom Flows detected during last 30 days"
-                >
-                    <img src="/static/mind-blown.png" height="20" width="20">
-                </div>
-                <div 
-                    class="col-1" id="comm_{{well.meter_id}}" 
-                    style="display: none;" 
-                    title="Communication Issue 3 consecutive days during last 30 days"
-                >
-                    <img src="/static/calculation.png" height="20" width="20">
-                </div>
-                <div 
-                    class="col-1" id="disc_{{well.meter_id}}" 
-                    style="display: none;" 
-                    title="Disconnected 15 consecutive days during last 30 days"
-                >
-                    <img src="/static/wifi.png" height="20" width="20">
+                {% endfor %}
+            </div>
+            <div class="separator">
+                &nbsp;
+            </div>
+            <div class="col-8">
+                <div class="row">
+                    <div class="col-10" id="readings_table_header"></div>
+                    <div class="col-10" id="readings_table"></div>
                 </div>
             </div>
-            {% endfor %}
         </div>
-        <div class="col-sm-1 separator">
-            &nbsp;
-        </div>
-        <div class="col-8">
-            <div class="row">
-                <div class="col-10" id="readings_table_header"></div>
-                <div class="col-10" id="readings_table"></div>
-            </div>
-        </div>
+        <div class="row" id="footerDiv" >
+            <div class="col-2" id="meterCount" style="display: none;"></div>
+        </div>  
+    </div>
 </div>
 
 </main>
@@ -152,17 +172,33 @@
         }
 
         const filterValue = document.getElementById('filter').value.toLowerCase();
-        const meters = document.querySelectorAll('#meter_list div');
+        const meters = Array.from(document.getElementsByClassName('meter_row')); // Convert NodeList to array
+        let meterCount = 0;
         
         meters.forEach(meter => {
-            const meterText = meter.textContent.toLowerCase();
+            let meterText = meter.textContent.toLowerCase();
+            meterText = meterText.trim();
             if (meterText.includes(filterValue)) {
                 meter.style.display = '';
                 hide_icons(meter.innerText);
+                meterCount++;
             } else {
                 meter.style.display = 'none';
             }
         });
+
+        let meterCountElement = document.getElementById('meterCount');
+        if (meterCount >= 0) {
+            let txt = 'meters';
+            if (meterCount === 1) {
+                txt = 'meter';
+            }
+            meterCountElement.style.display = 'block';
+            meterCountElement.innerText = `${meterCount} ${txt}`;
+        } else {
+            meterCountElement.style.display = 'none';
+        }
+
     }
 
     function saveFilter() {
@@ -179,7 +215,7 @@
     }
 
     async function checkPhantomFlows() {
-        let meters = document.getElementsByClassName('individual-meter');
+        let meters = document.getElementsByClassName('meter_row');
 
         // remove duplicates
         meters = Array.from(new Set(meters));
@@ -248,8 +284,10 @@
             // clear all background colors
             meters.forEach(meter => {
                 meter.style.backgroundColor = '';
+                meter.classList.remove('meter_row_selected');
             });
             let id = document.getElementById(meterId);
+            id.classList.add('meter_row_selected');
         }
 
         showProgress();
@@ -265,7 +303,7 @@
 
         let mtrid = "'" + meterId + "'";
         let header_txt = '';
-        header_txt += '<div class="row" >';
+        header_txt += '<div class="row detail_header" >';
         header_txt += '<div class=col-10><h2>Well Details : ' + meterId + '</h2></div>';
         header_txt += `<div class=col-2 id="download_data" onclick="downloadCSV(${mtrid});">` 
                       + `<img src="/static/microsoft-excel.png" height=30px width=30px /></div>`;
@@ -278,7 +316,7 @@
         header_txt += '<div class="col-2 data-header">Phantom</div>'
         header_txt += '</div>';
 
-        let table = '';
+        let table = '<div class="detail_body">';
         globalReadings.forEach(reading => {
             table += '<div class="row table-row">';
             table += `<div class="col-3 data-item">${reading.curr_date}</div>`;
@@ -288,7 +326,8 @@
             table += `<div class="col-2 data-item">${reading.phantom}</div>`;
             table += '</div>';
         });
-        table += '</div>';
+        table += '</div> <!-- rows -->';
+        table += '</div> <!-- detail_body -->';
 
         // sleep for about 1/2 second to allow the progress icon to show.
         await new Promise(r => setTimeout(r, 500));
